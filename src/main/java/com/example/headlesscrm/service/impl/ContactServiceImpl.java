@@ -8,6 +8,9 @@ import com.example.headlesscrm.repository.ContactRepository;
 import com.example.headlesscrm.service.ContactService;
 import com.example.headlesscrm.service.CustomerService;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -49,5 +52,12 @@ public class ContactServiceImpl implements ContactService {
                 .createdAt(contact.getCreatedAt())
                 .customerId(contact.getCustomer().getId())
                 .build();
+    }
+
+    @Override
+    public Page<ContactResponse> getAllContacts(UUID customerId, String userEmail, Pageable pageable) {
+        Customer customer = customerService.getCustomer(customerId, userEmail);
+        Page<Contact> contacts = contactRepository.findAllByCustomer(customer, pageable);
+        return contacts.map(this::mapToResponse);
     }
 }
