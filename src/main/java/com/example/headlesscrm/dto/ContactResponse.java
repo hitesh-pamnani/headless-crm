@@ -15,5 +15,6 @@ public class ContactResponse {
     private String email;
     private String phone;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
     private UUID customerId;
 }
