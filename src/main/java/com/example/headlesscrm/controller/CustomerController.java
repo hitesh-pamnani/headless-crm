@@ -4,6 +4,8 @@ import com.example.headlesscrm.dto.CustomerRequest;
 import com.example.headlesscrm.dto.CustomerResponse;
 import com.example.headlesscrm.security.UserDetailsImpl;
 import com.example.headlesscrm.service.CustomerService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -15,14 +17,18 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/customers")
 @RequiredArgsConstructor
+@Tag(name = "Customers", description = "Customer lifecycle management endpoints with soft delete support")
 public class CustomerController {
 
     private final CustomerService customerService;
 
     @PostMapping
+    @Operation(summary = "Create a new customer", description = "Creates a customer associated with the authenticated user.")
     public ResponseEntity<CustomerResponse> createCustomer(
             @Valid @RequestBody CustomerRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
@@ -31,10 +37,39 @@ public class CustomerController {
     }
 
     @GetMapping
+    @Operation(summary = "List all active customers", description = "Retrieves a paginated list of non-deleted customers owned by the authenticated user.")
     public ResponseEntity<Page<CustomerResponse>> getAllCustomers(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<CustomerResponse> response = customerService.getAllCustomers(userDetails.getUsername(), pageable);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get customer by ID", description = "Retrieves the details of a specific active customer by ID.")
+    public ResponseEntity<CustomerResponse> getCustomerById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        CustomerResponse response = customerService.getCustomerById(id, userDetails.getUsername());
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update customer details", description = "Updates an existing active customer owned by the authenticated user.")
+    public ResponseEntity<CustomerResponse> updateCustomer(
+            @PathVariable UUID id,
+            @Valid @RequestBody CustomerRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        CustomerResponse response = customerService.updateCustomer(id, request, userDetails.getUsername());
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Soft delete customer", description = "Marks a customer as deleted and updates their deleted timestamp.")
+    public ResponseEntity<Void> deleteCustomer(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        customerService.deleteCustomer(id, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
     }
 }

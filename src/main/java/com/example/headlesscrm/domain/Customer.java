@@ -47,6 +47,12 @@ public class Customer {
     @Size(max = 500)
     private String address;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean deleted = false;
+
+    private LocalDateTime deletedAt;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

@@ -10,6 +10,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface CustomerRepository extends JpaRepository<Customer, UUID> {
+    Page<Customer> findAllByOwnerAndDeletedFalse(User owner, Pageable pageable);
+    Optional<Customer> findByIdAndOwnerAndDeletedFalse(UUID id, User owner);
+    boolean existsByEmailAndOwnerAndDeletedFalse(String email, User owner);
+    boolean existsByEmailAndOwnerAndDeletedFalseAndIdNot(String email, User owner, UUID id);
+
+    // Fallbacks if querying unconstrained entities
     Page<Customer> findAllByOwner(User owner, Pageable pageable);
     Optional<Customer> findByIdAndOwner(UUID id, User owner);
     boolean existsByEmailAndOwner(String email, User owner);
