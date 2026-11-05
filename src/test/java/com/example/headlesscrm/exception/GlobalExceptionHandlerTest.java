@@ -82,6 +82,21 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handleAccessDeniedException_ReturnsForbiddenProblemDetail() {
+        org.springframework.security.access.AccessDeniedException ex =
+                new org.springframework.security.access.AccessDeniedException("You do not have permission to perform this action.");
+
+        ResponseEntity<ProblemDetail> response = exceptionHandler.handleAccessDeniedException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getTitle()).isEqualTo("Access Denied");
+        assertThat(response.getBody().getDetail()).isEqualTo("You do not have permission to perform this action.");
+        assertThat(response.getBody().getStatus()).isEqualTo(403);
+        assertThat(response.getBody().getProperties()).containsKey("timestamp");
+    }
+
+    @Test
     void handleValidationExceptions_ReturnsValidationProblemDetailWithFieldErrors() throws NoSuchMethodException {
         Method method = this.getClass().getDeclaredMethod("setUp");
         MethodParameter parameter = new MethodParameter(method, -1);
