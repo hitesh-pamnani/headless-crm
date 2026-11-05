@@ -7,6 +7,7 @@ import com.example.headlesscrm.dto.ContactResponse;
 import com.example.headlesscrm.exception.DuplicateResourceException;
 import com.example.headlesscrm.exception.ResourceNotFoundException;
 import com.example.headlesscrm.repository.ContactRepository;
+import com.example.headlesscrm.security.WorkspaceSecurityService;
 import com.example.headlesscrm.service.ContactService;
 import com.example.headlesscrm.service.CustomerService;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +24,13 @@ public class ContactServiceImpl implements ContactService {
 
     private final ContactRepository contactRepository;
     private final CustomerService customerService;
+    private final WorkspaceSecurityService workspaceSecurityService;
 
     @Override
     @Transactional
     public ContactResponse createContact(ContactRequest contactRequest, UUID customerId, String userEmail) {
         Customer customer = customerService.getCustomer(customerId, userEmail);
+        workspaceSecurityService.validateCanModify(customer.getOrganization().getId(), userEmail);
 
         if (contactRepository.existsByEmailAndCustomer(contactRequest.getEmail(), customer)) {
             throw new DuplicateResourceException("Contact with email '" + contactRequest.getEmail() + "' already exists for customer id: " + customerId);
@@ -65,6 +68,7 @@ public class ContactServiceImpl implements ContactService {
     @Transactional
     public ContactResponse updateContact(UUID customerId, UUID contactId, ContactRequest request, String userEmail) {
         Customer customer = customerService.getCustomer(customerId, userEmail);
+        workspaceSecurityService.validateCanModify(customer.getOrganization().getId(), userEmail);
         Contact contact = findContactOrThrow(contactId, customer);
 
         if (!contact.getEmail().equalsIgnoreCase(request.getEmail()) &&
@@ -85,6 +89,7 @@ public class ContactServiceImpl implements ContactService {
     @Transactional
     public void deleteContact(UUID customerId, UUID contactId, String userEmail) {
         Customer customer = customerService.getCustomer(customerId, userEmail);
+        workspaceSecurityService.validateCanDelete(customer.getOrganization().getId(), userEmail);
         Contact contact = findContactOrThrow(contactId, customer);
         contactRepository.delete(contact);
     }

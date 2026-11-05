@@ -9,10 +9,24 @@ import org.springframework.data.domain.Pageable;
 import java.util.UUID;
 
 public interface CustomerService {
-    CustomerResponse createCustomer(CustomerRequest customerRequest, String userEmail);
-    Page<CustomerResponse> getAllCustomers(String userEmail, Pageable pageable);
+
+    CustomerResponse createCustomer(UUID workspaceId, CustomerRequest customerRequest, String userEmail);
+
+    default CustomerResponse createCustomer(CustomerRequest customerRequest, String userEmail) {
+        return createCustomer(null, customerRequest, userEmail);
+    }
+
+    Page<CustomerResponse> getAllCustomers(UUID workspaceId, String userEmail, Pageable pageable);
+
+    default Page<CustomerResponse> getAllCustomers(String userEmail, Pageable pageable) {
+        return getAllCustomers(null, userEmail, pageable);
+    }
+
     Customer getCustomer(UUID customerId, String userEmail);
+
     CustomerResponse getCustomerById(UUID customerId, String userEmail);
+
     CustomerResponse updateCustomer(UUID customerId, CustomerRequest request, String userEmail);
+
     void deleteCustomer(UUID customerId, String userEmail);
 }

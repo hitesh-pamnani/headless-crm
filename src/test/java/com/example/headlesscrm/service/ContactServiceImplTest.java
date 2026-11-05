@@ -2,12 +2,14 @@ package com.example.headlesscrm.service;
 
 import com.example.headlesscrm.domain.Contact;
 import com.example.headlesscrm.domain.Customer;
+import com.example.headlesscrm.domain.Organization;
 import com.example.headlesscrm.domain.User;
 import com.example.headlesscrm.dto.ContactRequest;
 import com.example.headlesscrm.dto.ContactResponse;
 import com.example.headlesscrm.exception.DuplicateResourceException;
 import com.example.headlesscrm.exception.ResourceNotFoundException;
 import com.example.headlesscrm.repository.ContactRepository;
+import com.example.headlesscrm.security.WorkspaceSecurityService;
 import com.example.headlesscrm.service.impl.ContactServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -39,19 +42,31 @@ class ContactServiceImplTest {
     @Mock
     private CustomerService customerService;
 
+    @Mock
+    private WorkspaceSecurityService workspaceSecurityService;
+
     @InjectMocks
     private ContactServiceImpl contactService;
 
+    private Organization organization;
     private Customer customer;
     private Contact contact;
     private ContactRequest contactRequest;
     private UUID customerId;
     private UUID contactId;
+    private UUID organizationId;
 
     @BeforeEach
     void setUp() {
         customerId = UUID.randomUUID();
         contactId = UUID.randomUUID();
+        organizationId = UUID.randomUUID();
+
+        organization = Organization.builder()
+                .id(organizationId)
+                .name("Acme Org")
+                .slug("acme-org")
+                .build();
 
         User owner = new User();
         owner.setEmail("user@example.com");
@@ -61,6 +76,7 @@ class ContactServiceImplTest {
                 .firstName("Acme")
                 .lastName("Corp")
                 .email("info@acme.com")
+                .organization(organization)
                 .owner(owner)
                 .build();
 
@@ -94,7 +110,19 @@ class ContactServiceImplTest {
         assertThat(response.getId()).isEqualTo(contactId);
         assertThat(response.getEmail()).isEqualTo("jane.doe@acme.com");
         assertThat(response.getCustomerId()).isEqualTo(customerId);
+        verify(workspaceSecurityService).validateCanModify(organizationId, "user@example.com");
         verify(contactRepository).save(any(Contact.class));
+    }
+
+    @Test
+    void createContact_ReadOnlyMember_ThrowsAccessDeniedException() {
+        when(customerService.getCustomer(customerId, "user@example.com")).thenReturn(customer);
+        doThrow(new AccessDeniedException("Read-only members cannot modify data"))
+                .when(workspaceSecurityService).validateCanModify(organizationId, "user@example.com");
+
+        assertThatThrownBy(() -> contactService.createContact(contactRequest, customerId, "user@example.com"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Read-only");
     }
 
     @Test
@@ -161,6 +189,7 @@ class ContactServiceImplTest {
         ContactResponse response = contactService.updateContact(customerId, contactId, contactRequest, "user@example.com");
 
         assertThat(response).isNotNull();
+        verify(workspaceSecurityService).validateCanModify(organizationId, "user@example.com");
         verify(contactRepository).save(contact);
         assertThat(contact.getFirstName()).isEqualTo("Janet");
     }
@@ -201,6 +230,7 @@ class ContactServiceImplTest {
 
         contactService.deleteContact(customerId, contactId, "user@example.com");
 
+        verify(workspaceSecurityService).validateCanDelete(organizationId, "user@example.com");
         verify(contactRepository).delete(contact);
     }
 }

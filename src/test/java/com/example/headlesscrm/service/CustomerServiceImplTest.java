@@ -1,6 +1,7 @@
 package com.example.headlesscrm.service;
 
 import com.example.headlesscrm.domain.Customer;
+import com.example.headlesscrm.domain.Organization;
 import com.example.headlesscrm.domain.User;
 import com.example.headlesscrm.dto.CustomerRequest;
 import com.example.headlesscrm.dto.CustomerResponse;
@@ -8,6 +9,7 @@ import com.example.headlesscrm.exception.DuplicateResourceException;
 import com.example.headlesscrm.exception.ResourceNotFoundException;
 import com.example.headlesscrm.repository.CustomerRepository;
 import com.example.headlesscrm.repository.UserRepository;
+import com.example.headlesscrm.security.WorkspaceSecurityService;
 import com.example.headlesscrm.service.impl.CustomerServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -39,20 +42,36 @@ class CustomerServiceImplTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private WorkspaceService workspaceService;
+
+    @Mock
+    private WorkspaceSecurityService workspaceSecurityService;
+
     @InjectMocks
     private CustomerServiceImpl customerService;
 
     private User owner;
+    private Organization organization;
     private Customer customer;
     private CustomerRequest customerRequest;
     private UUID customerId;
+    private UUID workspaceId;
 
     @BeforeEach
     void setUp() {
         customerId = UUID.randomUUID();
+        workspaceId = UUID.randomUUID();
+
         owner = new User();
         owner.setId(UUID.randomUUID());
         owner.setEmail("user@example.com");
+
+        organization = Organization.builder()
+                .id(workspaceId)
+                .name("Acme Corp")
+                .slug("acme-corp")
+                .build();
 
         customer = Customer.builder()
                 .id(customerId)
@@ -61,6 +80,7 @@ class CustomerServiceImplTest {
                 .email("john.doe@example.com")
                 .phone("+1234567890")
                 .address("123 Main St")
+                .organization(organization)
                 .owner(owner)
                 .deleted(false)
                 .createdAt(LocalDateTime.now())
@@ -77,8 +97,9 @@ class CustomerServiceImplTest {
 
     @Test
     void createCustomer_Success() {
+        when(workspaceService.resolveWorkspace(null, "user@example.com")).thenReturn(organization);
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(owner));
-        when(customerRepository.existsByEmailAndOwnerAndDeletedFalse("john.doe@example.com", owner)).thenReturn(false);
+        when(customerRepository.existsByEmailAndOrganizationAndDeletedFalse("john.doe@example.com", organization)).thenReturn(false);
         when(customerRepository.save(any(Customer.class))).thenReturn(customer);
 
         CustomerResponse response = customerService.createCustomer(customerRequest, "user@example.com");
@@ -86,11 +107,13 @@ class CustomerServiceImplTest {
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(customerId);
         assertThat(response.getEmail()).isEqualTo("john.doe@example.com");
+        verify(workspaceSecurityService).validateCanModify(organization.getId(), "user@example.com");
         verify(customerRepository).save(any(Customer.class));
     }
 
     @Test
     void createCustomer_OwnerNotFound_ThrowsResourceNotFoundException() {
+        when(workspaceService.resolveWorkspace(null, "user@example.com")).thenReturn(organization);
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> customerService.createCustomer(customerRequest, "user@example.com"))
@@ -99,9 +122,10 @@ class CustomerServiceImplTest {
     }
 
     @Test
-    void createCustomer_DuplicateEmail_ThrowsDuplicateResourceException() {
+    void createCustomer_DuplicateEmailInWorkspace_ThrowsDuplicateResourceException() {
+        when(workspaceService.resolveWorkspace(null, "user@example.com")).thenReturn(organization);
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(owner));
-        when(customerRepository.existsByEmailAndOwnerAndDeletedFalse("john.doe@example.com", owner)).thenReturn(true);
+        when(customerRepository.existsByEmailAndOrganizationAndDeletedFalse("john.doe@example.com", organization)).thenReturn(true);
 
         assertThatThrownBy(() -> customerService.createCustomer(customerRequest, "user@example.com"))
                 .isInstanceOf(DuplicateResourceException.class)
@@ -109,10 +133,21 @@ class CustomerServiceImplTest {
     }
 
     @Test
+    void createCustomer_ReadOnlyRole_ThrowsAccessDeniedException() {
+        when(workspaceService.resolveWorkspace(null, "user@example.com")).thenReturn(organization);
+        doThrow(new AccessDeniedException("Read-only members are not permitted to modify workspace data."))
+                .when(workspaceSecurityService).validateCanModify(organization.getId(), "user@example.com");
+
+        assertThatThrownBy(() -> customerService.createCustomer(customerRequest, "user@example.com"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Read-only");
+    }
+
+    @Test
     void getAllCustomers_Success() {
         Pageable pageable = PageRequest.of(0, 10);
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(owner));
-        when(customerRepository.findAllByOwnerAndDeletedFalse(owner, pageable))
+        when(workspaceService.resolveWorkspace(null, "user@example.com")).thenReturn(organization);
+        when(customerRepository.findAllByOrganizationAndDeletedFalse(organization, pageable))
                 .thenReturn(new PageImpl<>(Collections.singletonList(customer)));
 
         Page<CustomerResponse> page = customerService.getAllCustomers("user@example.com", pageable);
@@ -123,19 +158,18 @@ class CustomerServiceImplTest {
 
     @Test
     void getCustomerById_Success() {
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(owner));
-        when(customerRepository.findByIdAndOwnerAndDeletedFalse(customerId, owner)).thenReturn(Optional.of(customer));
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
 
         CustomerResponse response = customerService.getCustomerById(customerId, "user@example.com");
 
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(customerId);
+        verify(workspaceSecurityService).getMembershipOrThrow(organization.getId(), "user@example.com");
     }
 
     @Test
     void getCustomerById_NotFound_ThrowsResourceNotFoundException() {
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(owner));
-        when(customerRepository.findByIdAndOwnerAndDeletedFalse(customerId, owner)).thenReturn(Optional.empty());
+        when(customerRepository.findById(customerId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> customerService.getCustomerById(customerId, "user@example.com"))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -144,23 +178,22 @@ class CustomerServiceImplTest {
 
     @Test
     void updateCustomer_Success_SameEmail() {
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(owner));
-        when(customerRepository.findByIdAndOwnerAndDeletedFalse(customerId, owner)).thenReturn(Optional.of(customer));
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
         when(customerRepository.save(any(Customer.class))).thenReturn(customer);
 
         customerRequest.setFirstName("Johnny");
         CustomerResponse response = customerService.updateCustomer(customerId, customerRequest, "user@example.com");
 
         assertThat(response).isNotNull();
+        verify(workspaceSecurityService).validateCanModify(organization.getId(), "user@example.com");
         verify(customerRepository).save(customer);
         assertThat(customer.getFirstName()).isEqualTo("Johnny");
     }
 
     @Test
     void updateCustomer_Success_ChangedNonConflictingEmail() {
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(owner));
-        when(customerRepository.findByIdAndOwnerAndDeletedFalse(customerId, owner)).thenReturn(Optional.of(customer));
-        when(customerRepository.existsByEmailAndOwnerAndDeletedFalseAndIdNot("new.email@example.com", owner, customerId)).thenReturn(false);
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+        when(customerRepository.existsByEmailAndOrganizationAndDeletedFalseAndIdNot("new.email@example.com", organization, customerId)).thenReturn(false);
         when(customerRepository.save(any(Customer.class))).thenReturn(customer);
 
         customerRequest.setEmail("new.email@example.com");
@@ -173,9 +206,8 @@ class CustomerServiceImplTest {
 
     @Test
     void updateCustomer_DuplicateEmailConflict_ThrowsDuplicateResourceException() {
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(owner));
-        when(customerRepository.findByIdAndOwnerAndDeletedFalse(customerId, owner)).thenReturn(Optional.of(customer));
-        when(customerRepository.existsByEmailAndOwnerAndDeletedFalseAndIdNot("taken@example.com", owner, customerId)).thenReturn(true);
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+        when(customerRepository.existsByEmailAndOrganizationAndDeletedFalseAndIdNot("taken@example.com", organization, customerId)).thenReturn(true);
 
         customerRequest.setEmail("taken@example.com");
 
@@ -187,14 +219,14 @@ class CustomerServiceImplTest {
 
     @Test
     void deleteCustomer_Success() {
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(owner));
-        when(customerRepository.findByIdAndOwnerAndDeletedFalse(customerId, owner)).thenReturn(Optional.of(customer));
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
         when(customerRepository.save(any(Customer.class))).thenReturn(customer);
 
         customerService.deleteCustomer(customerId, "user@example.com");
 
         assertThat(customer.isDeleted()).isTrue();
         assertThat(customer.getDeletedAt()).isNotNull();
+        verify(workspaceSecurityService).validateCanDelete(organization.getId(), "user@example.com");
         verify(customerRepository).save(customer);
     }
 }

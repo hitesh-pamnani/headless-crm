@@ -5,6 +5,7 @@ import com.example.headlesscrm.dto.CustomerResponse;
 import com.example.headlesscrm.security.UserDetailsImpl;
 import com.example.headlesscrm.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,26 +23,30 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/customers")
 @RequiredArgsConstructor
-@Tag(name = "Customers", description = "Customer lifecycle management endpoints with soft delete support")
+@Tag(name = "Customers", description = "Customer lifecycle management endpoints with multi-tenancy workspace scoping")
 public class CustomerController {
 
     private final CustomerService customerService;
 
     @PostMapping
-    @Operation(summary = "Create a new customer", description = "Creates a customer associated with the authenticated user.")
+    @Operation(summary = "Create a new customer", description = "Creates a customer in the specified workspace (or user's default workspace if header omitted).")
     public ResponseEntity<CustomerResponse> createCustomer(
+            @Parameter(description = "Optional workspace UUID header. Defaults to user's primary workspace.")
+            @RequestHeader(value = "X-Workspace-Id", required = false) UUID workspaceId,
             @Valid @RequestBody CustomerRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        CustomerResponse response = customerService.createCustomer(request, userDetails.getUsername());
+        CustomerResponse response = customerService.createCustomer(workspaceId, request, userDetails.getUsername());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
-    @Operation(summary = "List all active customers", description = "Retrieves a paginated list of non-deleted customers owned by the authenticated user.")
+    @Operation(summary = "List all active customers", description = "Retrieves a paginated list of non-deleted customers in the workspace.")
     public ResponseEntity<Page<CustomerResponse>> getAllCustomers(
+            @Parameter(description = "Optional workspace UUID header. Defaults to user's primary workspace.")
+            @RequestHeader(value = "X-Workspace-Id", required = false) UUID workspaceId,
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<CustomerResponse> response = customerService.getAllCustomers(userDetails.getUsername(), pageable);
+        Page<CustomerResponse> response = customerService.getAllCustomers(workspaceId, userDetails.getUsername(), pageable);
         return ResponseEntity.ok(response);
     }
 
@@ -55,7 +60,7 @@ public class CustomerController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update customer details", description = "Updates an existing active customer owned by the authenticated user.")
+    @Operation(summary = "Update customer details", description = "Updates an existing active customer in the workspace. Requires MEMBER, ADMIN, or OWNER role.")
     public ResponseEntity<CustomerResponse> updateCustomer(
             @PathVariable UUID id,
             @Valid @RequestBody CustomerRequest request,
@@ -65,7 +70,7 @@ public class CustomerController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Soft delete customer", description = "Marks a customer as deleted and updates their deleted timestamp.")
+    @Operation(summary = "Soft delete customer", description = "Marks a customer as deleted. Requires ADMIN or OWNER role.")
     public ResponseEntity<Void> deleteCustomer(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {

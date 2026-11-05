@@ -16,7 +16,9 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "customers")
+@Table(name = "customers", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"email", "organization_id"})
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -38,7 +40,6 @@ public class Customer {
     @NotBlank
     @Email
     @Size(max = 255)
-    @Column(unique = true)
     private String email;
 
     @Size(max = 20)
@@ -60,7 +61,12 @@ public class Customer {
     private LocalDateTime updatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "organization_id", nullable = false)
+    @JsonIgnore
+    private Organization organization;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
     @JsonIgnore
     private User owner;
 }

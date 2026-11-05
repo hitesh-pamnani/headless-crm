@@ -1,7 +1,7 @@
 package com.example.headlesscrm.repository;
 
 import com.example.headlesscrm.domain.Customer;
-import com.example.headlesscrm.domain.User;
+import com.example.headlesscrm.domain.Organization;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,13 +10,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface CustomerRepository extends JpaRepository<Customer, UUID> {
-    Page<Customer> findAllByOwnerAndDeletedFalse(User owner, Pageable pageable);
-    Optional<Customer> findByIdAndOwnerAndDeletedFalse(UUID id, User owner);
-    boolean existsByEmailAndOwnerAndDeletedFalse(String email, User owner);
-    boolean existsByEmailAndOwnerAndDeletedFalseAndIdNot(String email, User owner, UUID id);
+    Page<Customer> findAllByOrganizationAndDeletedFalse(Organization organization, Pageable pageable);
 
-    // Fallbacks if querying unconstrained entities
-    Page<Customer> findAllByOwner(User owner, Pageable pageable);
-    Optional<Customer> findByIdAndOwner(UUID id, User owner);
-    boolean existsByEmailAndOwner(String email, User owner);
+    Optional<Customer> findByIdAndOrganizationAndDeletedFalse(UUID id, Organization organization);
+
+    boolean existsByEmailAndOrganizationAndDeletedFalse(String email, Organization organization);
+
+    boolean existsByEmailAndOrganizationAndDeletedFalseAndIdNot(String email, Organization organization, UUID id);
 }

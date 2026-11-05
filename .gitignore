@@ -33,4 +33,5 @@ target/
 .DS_Store
 
 # Trail cache
-.trail/
+.trail/cache/
+.trail/repos/

@@ -102,7 +102,7 @@ class CustomerControllerTest {
 
     @Test
     void createCustomer_Returns201Created() throws Exception {
-        when(customerService.createCustomer(any(CustomerRequest.class), eq("user@example.com")))
+        when(customerService.createCustomer(nullable(UUID.class), any(CustomerRequest.class), eq("user@example.com")))
                 .thenReturn(customerResponse);
 
         mockMvc.perform(post("/api/customers")
@@ -114,8 +114,22 @@ class CustomerControllerTest {
     }
 
     @Test
+    void createCustomer_WithWorkspaceHeader_PassesWorkspaceId() throws Exception {
+        UUID customWorkspaceId = UUID.randomUUID();
+        when(customerService.createCustomer(eq(customWorkspaceId), any(CustomerRequest.class), eq("user@example.com")))
+                .thenReturn(customerResponse);
+
+        mockMvc.perform(post("/api/customers")
+                        .header("X-Workspace-Id", customWorkspaceId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(customerRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(customerId.toString()));
+    }
+
+    @Test
     void getAllCustomers_Returns200Ok() throws Exception {
-        when(customerService.getAllCustomers(eq("user@example.com"), any(Pageable.class)))
+        when(customerService.getAllCustomers(nullable(UUID.class), eq("user@example.com"), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(Collections.singletonList(customerResponse)));
 
         mockMvc.perform(get("/api/customers"))
