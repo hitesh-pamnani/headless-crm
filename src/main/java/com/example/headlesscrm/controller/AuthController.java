@@ -7,6 +7,7 @@ import com.example.headlesscrm.dto.MessageResponse;
 import com.example.headlesscrm.dto.SignupRequest;
 import com.example.headlesscrm.repository.UserRepository;
 import com.example.headlesscrm.security.jwt.JwtUtils;
+import com.example.headlesscrm.service.WorkspaceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -40,6 +41,9 @@ public class AuthController {
     @Autowired
     JwtUtils jwtUtils;
 
+    @Autowired
+    WorkspaceService workspaceService;
+
     @PostMapping("/signup")
     @Operation(summary = "Register user", description = "Creates a new user account with BCrypt password hashing.")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signUpRequest) {
@@ -53,7 +57,8 @@ public class AuthController {
         user.setPassword(encoder.encode(signUpRequest.getPassword()));
         user.setRoles(Collections.singletonList("ROLE_USER"));
 
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        workspaceService.createDefaultWorkspaceForUser(savedUser);
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }
 
