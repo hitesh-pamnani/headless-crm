@@ -14,13 +14,14 @@
 
 ## 🌟 Highlights
 
-- **🔒 Stateless JWT Authentication**: Secure signup and login flows utilizing industry-standard JSON Web Tokens (`jjwt-api`) and BCrypt password encryption.
-- **👥 Customer Lifecycle Management**: Full CRUD operations for customer records, featuring soft-deletes (`deleted` flag & timestamp) and ownership isolation per authenticated user.
+- **🔒 Stateless JWT Authentication**: Secure signup and login flows utilizing industry-standard JSON Web Tokens (`jjwt-api`) and BCrypt password encryption, with auto-provisioned primary workspaces.
+- **🏢 Multi-Tenant Workspaces & RBAC**: Shared team organizations with four-tier role-based access control (`OWNER`, `ADMIN`, `MEMBER`, `READ_ONLY`), member management, invitations, and dynamic `X-Workspace-Id` context resolution.
+- **👥 Customer Lifecycle Management**: Full CRUD operations for customer records scoped to team workspaces, featuring soft-deletes (`deleted` flag & timestamp).
 - **📇 Nested Contact Associations**: Manage hierarchical customer contacts (`/api/customers/{customerId}/contacts`) with duplicate email guards per customer.
 - **📑 Interactive OpenAPI 3 / Swagger UI**: Built-in interactive API exploration with pre-configured Bearer token authentication.
-- **⚡ RFC 7807 Standardized Errors**: Modern `application/problem+json` error responses with detailed field-level validation diagnostics.
+- **⚡ RFC 7807 Standardized Errors**: Modern `application/problem+json` error responses with detailed field-level validation diagnostics and access denial specifications.
 - **📈 Paginated & Sorted Queries**: Native Spring Data JPA pagination and sorting on customer and contact listings.
-- **🧪 Comprehensive Test Coverage**: 100% unit-tested controller and service layers with MockMvc and Mockito.
+- **🧪 Comprehensive Test Coverage**: 100% unit and integration test coverage across controllers, services, and security layers with MockMvc and Mockito.
 
 ---
 
@@ -32,21 +33,30 @@ flowchart TD
     
     subgraph "Headless CRM Application Core"
         Security --> AuthCtrl["AuthController\n(/api/auth)"]
+        Security --> WsCtrl["WorkspaceController\n(/api/workspaces)"]
         Security --> CustCtrl["CustomerController\n(/api/customers)"]
         Security --> ContCtrl["ContactController\n(/api/customers/{id}/contacts)"]
         
+        WsCtrl --> WsService["WorkspaceService"]
         CustCtrl --> CustService["CustomerService"]
         ContCtrl --> ContService["ContactService"]
         
+        CustService --> WsSec["WorkspaceSecurityService"]
+        ContService --> WsSec
+        WsService --> WsSec
+        
+        WsService --> OrgRepo["OrganizationRepository\nOrganizationMemberRepository\nOrganizationInvitationRepository"]
         CustService --> CustRepo["CustomerRepository"]
         ContService --> ContRepo["ContactRepository"]
         
-        CustCtrl -.-> GlobalEx["GlobalExceptionHandler\n(RFC 7807 ProblemDetail)"]
+        WsCtrl -.-> GlobalEx["GlobalExceptionHandler\n(RFC 7807 ProblemDetail)"]
+        CustCtrl -.-> GlobalEx
         ContCtrl -.-> GlobalEx
     end
     
     subgraph "Data Storage"
-        CustRepo --> PostgreSQL[(PostgreSQL)]
+        OrgRepo --> PostgreSQL[(PostgreSQL)]
+        CustRepo --> PostgreSQL
         ContRepo --> PostgreSQL
     end
 ```
@@ -115,6 +125,24 @@ Explore, test, and generate client SDKs directly in the browser:
 | `POST` | `/api/auth/signup` | Register a new user | No |
 | `POST` | `/api/auth/login` | Authenticate and obtain JWT token | No |
 
+### 🏢 Workspaces & Team Collaboration
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `POST` | `/api/workspaces` | Create new workspace (creator becomes `OWNER`) | Yes (Bearer) |
+| `GET` | `/api/workspaces` | List all workspaces for authenticated user | Yes (Bearer) |
+| `GET` | `/api/workspaces/{workspaceId}` | Get workspace details | Yes (Bearer) |
+| `PUT` | `/api/workspaces/{workspaceId}` | Update workspace details (requires `ADMIN` or `OWNER`) | Yes (Bearer) |
+| `DELETE` | `/api/workspaces/{workspaceId}` | Delete workspace and associated data (requires `OWNER`) | Yes (Bearer) |
+| `GET` | `/api/workspaces/{workspaceId}/members` | List workspace members and their assigned roles | Yes (Bearer) |
+| `POST` | `/api/workspaces/{workspaceId}/members` | Add registered user directly (requires `ADMIN` or `OWNER`) | Yes (Bearer) |
+| `PUT` | `/api/workspaces/{workspaceId}/members/{memberId}` | Update member role (`OWNER`, `ADMIN`, `MEMBER`, `READ_ONLY`) | Yes (Bearer) |
+| `DELETE` | `/api/workspaces/{workspaceId}/members/{memberId}` | Remove member or leave workspace | Yes (Bearer) |
+| `POST` | `/api/workspaces/{workspaceId}/invitations` | Invite member via email with role (requires `ADMIN` or `OWNER`) | Yes (Bearer) |
+| `GET` | `/api/workspaces/{workspaceId}/invitations` | List pending invitations (requires `ADMIN` or `OWNER`) | Yes (Bearer) |
+| `POST` | `/api/workspaces/invitations/{invitationId}/accept` | Accept workspace invitation | Yes (Bearer) |
+| `POST` | `/api/workspaces/invitations/{invitationId}/decline` | Decline workspace invitation | Yes (Bearer) |
+
 ### 👥 Customers
 
 | Method | Endpoint | Description | Auth Required |
@@ -134,6 +162,47 @@ Explore, test, and generate client SDKs directly in the browser:
 | `GET` | `/api/customers/{customerId}/contacts/{contactId}` | Get contact by ID | Yes (Bearer) |
 | `PUT` | `/api/customers/{customerId}/contacts/{contactId}` | Update contact details | Yes (Bearer) |
 | `DELETE` | `/api/customers/{customerId}/contacts/{contactId}` | Delete contact | Yes (Bearer) |
+
+### 📊 Pipelines & Stages
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `POST` | `/api/pipelines` | Create sales pipeline with custom stages | Yes (Bearer) |
+| `GET` | `/api/pipelines` | List pipelines for workspace | Yes (Bearer) |
+| `GET` | `/api/pipelines/{id}` | Get pipeline details with stages | Yes (Bearer) |
+| `PUT` | `/api/pipelines/{id}` | Update pipeline details and stages | Yes (Bearer) |
+| `DELETE` | `/api/pipelines/{id}` | Delete pipeline (non-default & without active deals) | Yes (Bearer) |
+| `POST` | `/api/pipelines/{id}/set-default` | Designate pipeline as workspace default | Yes (Bearer) |
+
+### 💼 Deals & Opportunities
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `POST` | `/api/deals` | Create a new deal / opportunity | Yes (Bearer) |
+| `GET` | `/api/deals` | List deals with filtering (pipeline, stage, customer, status) | Yes (Bearer) |
+| `GET` | `/api/deals/{id}` | Get deal details by ID | Yes (Bearer) |
+| `PUT` | `/api/deals/{id}` | Update deal details | Yes (Bearer) |
+| `PATCH` | `/api/deals/{id}/stage` | Advance / move deal stage (auto win/loss tracking) | Yes (Bearer) |
+| `DELETE` | `/api/deals/{id}` | Soft delete deal (requires `ADMIN` or `OWNER`) | Yes (Bearer) |
+
+### 📅 Activities (Calls, Meetings, Notes, Tasks)
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `POST` | `/api/activities` | Log call, meeting, note, or create task | Yes (Bearer) |
+| `GET` | `/api/activities` | List activities with filtering (type, status, customer, deal) | Yes (Bearer) |
+| `GET` | `/api/activities/{id}` | Get activity details by ID | Yes (Bearer) |
+| `PUT` | `/api/activities/{id}` | Update activity details or reschedule | Yes (Bearer) |
+| `PATCH` | `/api/activities/{id}/complete` | Mark activity/task as completed | Yes (Bearer) |
+| `DELETE` | `/api/activities/{id}` | Delete activity | Yes (Bearer) |
+
+### 📜 Aggregate Relationship History (Timeline)
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `GET` | `/api/timeline` | Workspace-wide aggregated chronological activity feed | Yes (Bearer) |
+| `GET` | `/api/timeline/customers/{customerId}` | Complete relationship history feed for a customer | Yes (Bearer) |
+| `GET` | `/api/timeline/deals/{dealId}` | Complete relationship interaction feed for a deal | Yes (Bearer) |
 
 ---
 
@@ -224,9 +293,11 @@ Development follows our comprehensive milestone plan outlined in [`ROADMAP_20261
   - [x] Nested contact associations
   - [x] RFC 7807 Problem Details error handling
   - [x] SpringDoc OpenAPI / Swagger UI integration
-- [ ] **Phase 2: Multi-Tenancy & Team Collaboration**
-  - [ ] Workspace / Organization scoping
-  - [ ] Granular RBAC (`WORKSPACE_ADMIN`, `SALES_REP`, `READ_ONLY`)
+- [x] **Phase 2: Multi-Tenancy & Team Collaboration**
+  - [x] Organization & workspace scoping with `X-Workspace-Id` context resolution
+  - [x] Team invitations and membership lifecycle (`OrganizationInvitation`, `OrganizationMember`)
+  - [x] Granular RBAC (`OWNER`, `ADMIN`, `MEMBER`, `READ_ONLY`) with `WorkspaceSecurityService`
+  - [x] Standardized RFC 7807 403 Forbidden error handling
 - [ ] **Phase 3: CRM Domain Expansion**
   - [ ] Deals & Pipeline stages (`Lead`, `Qualified`, `Proposal`, `Won`, `Lost`)
   - [ ] Activity timelines (calls, meetings, tasks)
