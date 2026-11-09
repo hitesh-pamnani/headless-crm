@@ -30,30 +30,30 @@
 ```mermaid
 flowchart TD
     Client["Client Applications\n(Next.js / Mobile / Automation)"] -->|HTTPS / REST| Security["Spring Security Filter Chain\n(AuthTokenFilter / JWT)"]
-    
+
     subgraph "Headless CRM Application Core"
         Security --> AuthCtrl["AuthController\n(/api/auth)"]
         Security --> WsCtrl["WorkspaceController\n(/api/workspaces)"]
         Security --> CustCtrl["CustomerController\n(/api/customers)"]
         Security --> ContCtrl["ContactController\n(/api/customers/{id}/contacts)"]
-        
+
         WsCtrl --> WsService["WorkspaceService"]
         CustCtrl --> CustService["CustomerService"]
         ContCtrl --> ContService["ContactService"]
-        
+
         CustService --> WsSec["WorkspaceSecurityService"]
         ContService --> WsSec
         WsService --> WsSec
-        
+
         WsService --> OrgRepo["OrganizationRepository\nOrganizationMemberRepository\nOrganizationInvitationRepository"]
         CustService --> CustRepo["CustomerRepository"]
         ContService --> ContRepo["ContactRepository"]
-        
+
         WsCtrl -.-> GlobalEx["GlobalExceptionHandler\n(RFC 7807 ProblemDetail)"]
         CustCtrl -.-> GlobalEx
         ContCtrl -.-> GlobalEx
     end
-    
+
     subgraph "Data Storage"
         OrgRepo --> PostgreSQL[(PostgreSQL)]
         CustRepo --> PostgreSQL
@@ -120,89 +120,89 @@ Explore, test, and generate client SDKs directly in the browser:
 
 ### 🔐 Authentication
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/auth/signup` | Register a new user | No |
-| `POST` | `/api/auth/login` | Authenticate and obtain JWT token | No |
+| Method | Endpoint           | Description                       | Auth Required |
+| ------ | ------------------ | --------------------------------- | ------------- |
+| `POST` | `/api/auth/signup` | Register a new user               | No            |
+| `POST` | `/api/auth/login`  | Authenticate and obtain JWT token | No            |
 
 ### 🏢 Workspaces & Team Collaboration
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/workspaces` | Create new workspace (creator becomes `OWNER`) | Yes (Bearer) |
-| `GET` | `/api/workspaces` | List all workspaces for authenticated user | Yes (Bearer) |
-| `GET` | `/api/workspaces/{workspaceId}` | Get workspace details | Yes (Bearer) |
-| `PUT` | `/api/workspaces/{workspaceId}` | Update workspace details (requires `ADMIN` or `OWNER`) | Yes (Bearer) |
-| `DELETE` | `/api/workspaces/{workspaceId}` | Delete workspace and associated data (requires `OWNER`) | Yes (Bearer) |
-| `GET` | `/api/workspaces/{workspaceId}/members` | List workspace members and their assigned roles | Yes (Bearer) |
-| `POST` | `/api/workspaces/{workspaceId}/members` | Add registered user directly (requires `ADMIN` or `OWNER`) | Yes (Bearer) |
-| `PUT` | `/api/workspaces/{workspaceId}/members/{memberId}` | Update member role (`OWNER`, `ADMIN`, `MEMBER`, `READ_ONLY`) | Yes (Bearer) |
-| `DELETE` | `/api/workspaces/{workspaceId}/members/{memberId}` | Remove member or leave workspace | Yes (Bearer) |
-| `POST` | `/api/workspaces/{workspaceId}/invitations` | Invite member via email with role (requires `ADMIN` or `OWNER`) | Yes (Bearer) |
-| `GET` | `/api/workspaces/{workspaceId}/invitations` | List pending invitations (requires `ADMIN` or `OWNER`) | Yes (Bearer) |
-| `POST` | `/api/workspaces/invitations/{invitationId}/accept` | Accept workspace invitation | Yes (Bearer) |
-| `POST` | `/api/workspaces/invitations/{invitationId}/decline` | Decline workspace invitation | Yes (Bearer) |
+| Method   | Endpoint                                             | Description                                                     | Auth Required |
+| -------- | ---------------------------------------------------- | --------------------------------------------------------------- | ------------- |
+| `POST`   | `/api/workspaces`                                    | Create new workspace (creator becomes `OWNER`)                  | Yes (Bearer)  |
+| `GET`    | `/api/workspaces`                                    | List all workspaces for authenticated user                      | Yes (Bearer)  |
+| `GET`    | `/api/workspaces/{workspaceId}`                      | Get workspace details                                           | Yes (Bearer)  |
+| `PUT`    | `/api/workspaces/{workspaceId}`                      | Update workspace details (requires `ADMIN` or `OWNER`)          | Yes (Bearer)  |
+| `DELETE` | `/api/workspaces/{workspaceId}`                      | Delete workspace and associated data (requires `OWNER`)         | Yes (Bearer)  |
+| `GET`    | `/api/workspaces/{workspaceId}/members`              | List workspace members and their assigned roles                 | Yes (Bearer)  |
+| `POST`   | `/api/workspaces/{workspaceId}/members`              | Add registered user directly (requires `ADMIN` or `OWNER`)      | Yes (Bearer)  |
+| `PUT`    | `/api/workspaces/{workspaceId}/members/{memberId}`   | Update member role (`OWNER`, `ADMIN`, `MEMBER`, `READ_ONLY`)    | Yes (Bearer)  |
+| `DELETE` | `/api/workspaces/{workspaceId}/members/{memberId}`   | Remove member or leave workspace                                | Yes (Bearer)  |
+| `POST`   | `/api/workspaces/{workspaceId}/invitations`          | Invite member via email with role (requires `ADMIN` or `OWNER`) | Yes (Bearer)  |
+| `GET`    | `/api/workspaces/{workspaceId}/invitations`          | List pending invitations (requires `ADMIN` or `OWNER`)          | Yes (Bearer)  |
+| `POST`   | `/api/workspaces/invitations/{invitationId}/accept`  | Accept workspace invitation                                     | Yes (Bearer)  |
+| `POST`   | `/api/workspaces/invitations/{invitationId}/decline` | Decline workspace invitation                                    | Yes (Bearer)  |
 
 ### 👥 Customers
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/customers` | Create a customer | Yes (Bearer) |
-| `GET` | `/api/customers` | List active customers (paginated) | Yes (Bearer) |
-| `GET` | `/api/customers/{id}` | Get customer details by ID | Yes (Bearer) |
-| `PUT` | `/api/customers/{id}` | Update customer information | Yes (Bearer) |
-| `DELETE` | `/api/customers/{id}` | Soft delete customer | Yes (Bearer) |
+| Method   | Endpoint              | Description                       | Auth Required |
+| -------- | --------------------- | --------------------------------- | ------------- |
+| `POST`   | `/api/customers`      | Create a customer                 | Yes (Bearer)  |
+| `GET`    | `/api/customers`      | List active customers (paginated) | Yes (Bearer)  |
+| `GET`    | `/api/customers/{id}` | Get customer details by ID        | Yes (Bearer)  |
+| `PUT`    | `/api/customers/{id}` | Update customer information       | Yes (Bearer)  |
+| `DELETE` | `/api/customers/{id}` | Soft delete customer              | Yes (Bearer)  |
 
 ### 📇 Contacts
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/customers/{customerId}/contacts` | Add contact to customer | Yes (Bearer) |
-| `GET` | `/api/customers/{customerId}/contacts` | List contacts for customer | Yes (Bearer) |
-| `GET` | `/api/customers/{customerId}/contacts/{contactId}` | Get contact by ID | Yes (Bearer) |
-| `PUT` | `/api/customers/{customerId}/contacts/{contactId}` | Update contact details | Yes (Bearer) |
-| `DELETE` | `/api/customers/{customerId}/contacts/{contactId}` | Delete contact | Yes (Bearer) |
+| Method   | Endpoint                                           | Description                | Auth Required |
+| -------- | -------------------------------------------------- | -------------------------- | ------------- |
+| `POST`   | `/api/customers/{customerId}/contacts`             | Add contact to customer    | Yes (Bearer)  |
+| `GET`    | `/api/customers/{customerId}/contacts`             | List contacts for customer | Yes (Bearer)  |
+| `GET`    | `/api/customers/{customerId}/contacts/{contactId}` | Get contact by ID          | Yes (Bearer)  |
+| `PUT`    | `/api/customers/{customerId}/contacts/{contactId}` | Update contact details     | Yes (Bearer)  |
+| `DELETE` | `/api/customers/{customerId}/contacts/{contactId}` | Delete contact             | Yes (Bearer)  |
 
 ### 📊 Pipelines & Stages
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/pipelines` | Create sales pipeline with custom stages | Yes (Bearer) |
-| `GET` | `/api/pipelines` | List pipelines for workspace | Yes (Bearer) |
-| `GET` | `/api/pipelines/{id}` | Get pipeline details with stages | Yes (Bearer) |
-| `PUT` | `/api/pipelines/{id}` | Update pipeline details and stages | Yes (Bearer) |
-| `DELETE` | `/api/pipelines/{id}` | Delete pipeline (non-default & without active deals) | Yes (Bearer) |
-| `POST` | `/api/pipelines/{id}/set-default` | Designate pipeline as workspace default | Yes (Bearer) |
+| Method   | Endpoint                          | Description                                          | Auth Required |
+| -------- | --------------------------------- | ---------------------------------------------------- | ------------- |
+| `POST`   | `/api/pipelines`                  | Create sales pipeline with custom stages             | Yes (Bearer)  |
+| `GET`    | `/api/pipelines`                  | List pipelines for workspace                         | Yes (Bearer)  |
+| `GET`    | `/api/pipelines/{id}`             | Get pipeline details with stages                     | Yes (Bearer)  |
+| `PUT`    | `/api/pipelines/{id}`             | Update pipeline details and stages                   | Yes (Bearer)  |
+| `DELETE` | `/api/pipelines/{id}`             | Delete pipeline (non-default & without active deals) | Yes (Bearer)  |
+| `POST`   | `/api/pipelines/{id}/set-default` | Designate pipeline as workspace default              | Yes (Bearer)  |
 
 ### 💼 Deals & Opportunities
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/deals` | Create a new deal / opportunity | Yes (Bearer) |
-| `GET` | `/api/deals` | List deals with filtering (pipeline, stage, customer, status) | Yes (Bearer) |
-| `GET` | `/api/deals/{id}` | Get deal details by ID | Yes (Bearer) |
-| `PUT` | `/api/deals/{id}` | Update deal details | Yes (Bearer) |
-| `PATCH` | `/api/deals/{id}/stage` | Advance / move deal stage (auto win/loss tracking) | Yes (Bearer) |
-| `DELETE` | `/api/deals/{id}` | Soft delete deal (requires `ADMIN` or `OWNER`) | Yes (Bearer) |
+| Method   | Endpoint                | Description                                                   | Auth Required |
+| -------- | ----------------------- | ------------------------------------------------------------- | ------------- |
+| `POST`   | `/api/deals`            | Create a new deal / opportunity                               | Yes (Bearer)  |
+| `GET`    | `/api/deals`            | List deals with filtering (pipeline, stage, customer, status) | Yes (Bearer)  |
+| `GET`    | `/api/deals/{id}`       | Get deal details by ID                                        | Yes (Bearer)  |
+| `PUT`    | `/api/deals/{id}`       | Update deal details                                           | Yes (Bearer)  |
+| `PATCH`  | `/api/deals/{id}/stage` | Advance / move deal stage (auto win/loss tracking)            | Yes (Bearer)  |
+| `DELETE` | `/api/deals/{id}`       | Soft delete deal (requires `ADMIN` or `OWNER`)                | Yes (Bearer)  |
 
 ### 📅 Activities (Calls, Meetings, Notes, Tasks)
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/activities` | Log call, meeting, note, or create task | Yes (Bearer) |
-| `GET` | `/api/activities` | List activities with filtering (type, status, customer, deal) | Yes (Bearer) |
-| `GET` | `/api/activities/{id}` | Get activity details by ID | Yes (Bearer) |
-| `PUT` | `/api/activities/{id}` | Update activity details or reschedule | Yes (Bearer) |
-| `PATCH` | `/api/activities/{id}/complete` | Mark activity/task as completed | Yes (Bearer) |
-| `DELETE` | `/api/activities/{id}` | Delete activity | Yes (Bearer) |
+| Method   | Endpoint                        | Description                                                   | Auth Required |
+| -------- | ------------------------------- | ------------------------------------------------------------- | ------------- |
+| `POST`   | `/api/activities`               | Log call, meeting, note, or create task                       | Yes (Bearer)  |
+| `GET`    | `/api/activities`               | List activities with filtering (type, status, customer, deal) | Yes (Bearer)  |
+| `GET`    | `/api/activities/{id}`          | Get activity details by ID                                    | Yes (Bearer)  |
+| `PUT`    | `/api/activities/{id}`          | Update activity details or reschedule                         | Yes (Bearer)  |
+| `PATCH`  | `/api/activities/{id}/complete` | Mark activity/task as completed                               | Yes (Bearer)  |
+| `DELETE` | `/api/activities/{id}`          | Delete activity                                               | Yes (Bearer)  |
 
 ### 📜 Aggregate Relationship History (Timeline)
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `GET` | `/api/timeline` | Workspace-wide aggregated chronological activity feed | Yes (Bearer) |
-| `GET` | `/api/timeline/customers/{customerId}` | Complete relationship history feed for a customer | Yes (Bearer) |
-| `GET` | `/api/timeline/deals/{dealId}` | Complete relationship interaction feed for a deal | Yes (Bearer) |
+| Method | Endpoint                               | Description                                           | Auth Required |
+| ------ | -------------------------------------- | ----------------------------------------------------- | ------------- |
+| `GET`  | `/api/timeline`                        | Workspace-wide aggregated chronological activity feed | Yes (Bearer)  |
+| `GET`  | `/api/timeline/customers/{customerId}` | Complete relationship history feed for a customer     | Yes (Bearer)  |
+| `GET`  | `/api/timeline/deals/{dealId}`         | Complete relationship interaction feed for a deal     | Yes (Bearer)  |
 
 ---
 
@@ -269,6 +269,7 @@ All non-2xx responses adhere to the standard `application/problem+json` specific
 ```
 
 Validation errors contain field-level specifics:
+
 ```json
 {
   "type": "https://api.headlesscrm.com/errors/validation-error",
@@ -298,10 +299,10 @@ Development follows our comprehensive milestone plan outlined in [`ROADMAP_20261
   - [x] Team invitations and membership lifecycle (`OrganizationInvitation`, `OrganizationMember`)
   - [x] Granular RBAC (`OWNER`, `ADMIN`, `MEMBER`, `READ_ONLY`) with `WorkspaceSecurityService`
   - [x] Standardized RFC 7807 403 Forbidden error handling
-- [ ] **Phase 3: CRM Domain Expansion**
-  - [ ] Deals & Pipeline stages (`Lead`, `Qualified`, `Proposal`, `Won`, `Lost`)
-  - [ ] Activity timelines (calls, meetings, tasks)
-  - [ ] Dynamic JSONB custom fields
+- [x] **Phase 3: CRM Domain Expansion**
+  - [x] Deals & Pipeline stages (`Lead`, `Qualified`, `Proposal`, `Won`, `Lost`)
+  - [x] Activity timelines (calls, meetings, tasks)
+  - [x] Dynamic JSONB custom fields
 - [ ] **Phase 4: Headless Integration & Developer Ecosystem**
   - [ ] Machine-to-Machine (M2M) API keys
   - [ ] Outgoing Webhooks (Transactional Outbox)
