@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 @Data
@@ -38,6 +39,9 @@ public class CustomerResponse {
 
     @Schema(description = "Organization/Workspace name the customer belongs to", example = "Acme Corp")
     private String organizationName;
+
+    @Schema(description = "Dynamic custom attributes / JSON metadata")
+    private Map<String, Object> customFields;
 
     @Schema(description = "Record creation timestamp")
     private LocalDateTime createdAt;

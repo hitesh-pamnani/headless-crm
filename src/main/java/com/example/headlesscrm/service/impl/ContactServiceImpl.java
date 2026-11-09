@@ -16,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.UUID;
 
 @Service
@@ -42,6 +43,7 @@ public class ContactServiceImpl implements ContactService {
                 .email(contactRequest.getEmail())
                 .phone(contactRequest.getPhone())
                 .customer(customer)
+                .customFields(contactRequest.getCustomFields() != null ? contactRequest.getCustomFields() : new HashMap<>())
                 .build();
 
         Contact savedContact = contactRepository.save(contact);
@@ -80,6 +82,9 @@ public class ContactServiceImpl implements ContactService {
         contact.setLastName(request.getLastName());
         contact.setEmail(request.getEmail());
         contact.setPhone(request.getPhone());
+        if (request.getCustomFields() != null) {
+            contact.setCustomFields(request.getCustomFields());
+        }
 
         Contact updatedContact = contactRepository.save(contact);
         return mapToResponse(updatedContact);
@@ -106,6 +111,7 @@ public class ContactServiceImpl implements ContactService {
                 .lastName(contact.getLastName())
                 .email(contact.getEmail())
                 .phone(contact.getPhone())
+                .customFields(contact.getCustomFields())
                 .createdAt(contact.getCreatedAt())
                 .updatedAt(contact.getUpdatedAt())
                 .customerId(contact.getCustomer().getId())

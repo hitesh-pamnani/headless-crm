@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.UUID;
 
 @Service
@@ -47,6 +48,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .email(customerRequest.getEmail())
                 .phone(customerRequest.getPhone())
                 .address(customerRequest.getAddress())
+                .customFields(customerRequest.getCustomFields() != null ? customerRequest.getCustomFields() : new HashMap<>())
                 .deleted(false)
                 .organization(organization)
                 .owner(owner)
@@ -98,6 +100,9 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setEmail(request.getEmail());
         customer.setPhone(request.getPhone());
         customer.setAddress(request.getAddress());
+        if (request.getCustomFields() != null) {
+            customer.setCustomFields(request.getCustomFields());
+        }
 
         Customer updatedCustomer = customerRepository.save(customer);
         return mapToResponse(updatedCustomer);
@@ -127,6 +132,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .email(customer.getEmail())
                 .phone(customer.getPhone())
                 .address(customer.getAddress())
+                .customFields(customer.getCustomFields())
                 .organizationId(customer.getOrganization() != null ? customer.getOrganization().getId() : null)
                 .organizationName(customer.getOrganization() != null ? customer.getOrganization().getName() : null)
                 .createdAt(customer.getCreatedAt())
